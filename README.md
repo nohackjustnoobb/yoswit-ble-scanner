@@ -23,12 +23,15 @@ An ESP32-based BLE scanner for [yoswit-homebridge-mqtt](https://github.com/nohac
 
 2. **Configure credentials**:
 
-   Edit `src/main.cpp`:
+   Edit `include/credentials.h` and update with your settings:
 
    ```cpp
    const char *WIFI_SSID = "YOUR_WIFI_SSID";
    const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
    const char *MQTT_BROKER = "YOUR_MQTT_BROKER_IP";  // IP of machine running yoswit-homebridge-mqtt
+   const int MQTT_PORT = 1883;
+   const char *MQTT_CLIENT_ID = "YoswitBLEScanner";
+   const char *MQTT_TOPIC = "yoswit/ble/devices";
    ```
 
 3. **Upload to ESP32**:

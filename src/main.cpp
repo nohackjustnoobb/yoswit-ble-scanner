@@ -1,3 +1,4 @@
+#include "credentials.h"
 #include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEScan.h>
@@ -10,16 +11,7 @@
 #define SCAN_DURATION_SECONDS 5
 #define MAX_CONNECTION_ATTEMPTS 30
 #define CONNECTION_RETRY_TIMEOUT_MS 1000
-
-// WiFi credentials
-const char *WIFI_SSID = "YOUR_WIFI_SSID";
-const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-
-// MQTT Broker settings
-const char *MQTT_BROKER = "YOUR_MQTT_BROKER_IP";
-const int MQTT_PORT = 1883;
-const char *MQTT_CLIENT_ID = "YoswitBLEScanner";
-const char *MQTT_TOPIC = "yoswit/ble/devices";
+#define LED_PIN 8
 
 // Global variable to store ManufacturerData of size 9, keyed by MAC address
 std::map<std::string, std::string> devices;
@@ -31,11 +23,15 @@ BLEScan *pBLEScan;
 bool scanning = false;
 
 void connectWiFi() {
-  Serial.print("Connecting to WiFi");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
   int attempts = 0;
+  Serial.print("Connecting to WiFi (SSID: ");
+  Serial.print(WIFI_SSID);
+  Serial.print(")");
+
   while (WiFi.status() != WL_CONNECTED && attempts < MAX_CONNECTION_ATTEMPTS) {
+    if (WiFi.begin(WIFI_SSID, WIFI_PASSWORD) == WL_CONNECTED)
+      break;
+
     delay(CONNECTION_RETRY_TIMEOUT_MS);
     Serial.print(".");
     attempts++;
@@ -43,12 +39,12 @@ void connectWiFi() {
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println();
-    Serial.println("WiFi connected!");
+    Serial.println("WiFi connected");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
   } else {
     Serial.println();
-    Serial.println("WiFi connection failed!");
+    Serial.println("WiFi connection failed");
   }
 }
 
@@ -78,27 +74,31 @@ void publishAllDevices() {
   Serial.println(" devices");
 }
 
-void reconnectMQTT() {
+void connectMQTT() {
   int attempts = 0;
+  Serial.print("Connecting to MQTT (Broker: ");
+  Serial.print(MQTT_BROKER);
+  Serial.print(":");
+  Serial.print(MQTT_PORT);
+  Serial.print(")");
+
   while (!mqttClient.connected() && attempts < MAX_CONNECTION_ATTEMPTS) {
-    Serial.print("Attempting MQTT connection...");
-    if (mqttClient.connect(MQTT_CLIENT_ID)) {
-      Serial.println("connected");
-      // Send all devices after connecting
-      publishAllDevices();
+    if (mqttClient.connect(MQTT_CLIENT_ID))
       break;
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(mqttClient.state());
-      Serial.print(" trying again in ");
-      Serial.print(CONNECTION_RETRY_TIMEOUT_MS / 1000);
-      Serial.println(" seconds");
-      delay(CONNECTION_RETRY_TIMEOUT_MS);
-      attempts++;
-    }
+
+    delay(CONNECTION_RETRY_TIMEOUT_MS);
+    Serial.print(".");
+    attempts++;
   }
-  if (!mqttClient.connected()) {
-    Serial.println("MQTT connection failed after max retries!");
+
+  if (mqttClient.connected()) {
+    Serial.println();
+    Serial.println("MQTT connected");
+    // Send all devices after connecting
+    publishAllDevices();
+  } else {
+    Serial.println();
+    Serial.println("MQTT connection failed");
   }
 }
 
@@ -128,13 +128,12 @@ class AdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
           Serial.print("Data changed for device: ");
           Serial.print(mac.c_str());
           Serial.print(" Old: ");
-          for (unsigned char c : it->second) {
+          for (unsigned char c : it->second)
             Serial.printf("%02X ", (unsigned char)c);
-          }
           Serial.print(" New: ");
-          for (unsigned char c : mData) {
+          for (unsigned char c : mData)
             Serial.printf("%02X ", (unsigned char)c);
-          }
+
           Serial.println();
           devices[mac] = mData;
           publishDeviceData(mac, mData);
@@ -153,8 +152,8 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Yoswit BLE Scanner with WiFi & MQTT");
 
-  // Connect to WiFi
-  connectWiFi();
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH); // LED OFF initially
 
   // Setup MQTT
   mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
@@ -170,14 +169,15 @@ void setup() {
 
 void loop() {
   // Check WiFi connection
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected, reconnecting...");
+  if (WiFi.status() != WL_CONNECTED)
     connectWiFi();
-  }
 
   // Maintain MQTT connection
   if (!mqttClient.connected()) {
-    reconnectMQTT();
+    digitalWrite(LED_PIN, HIGH); // LED OFF when not connected
+    connectMQTT();
+  } else {
+    digitalWrite(LED_PIN, LOW); // LED ON when connected
   }
   mqttClient.loop();
 
