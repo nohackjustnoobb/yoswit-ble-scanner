@@ -30,8 +30,6 @@ An ESP32-based BLE scanner for [yoswit-homebridge-mqtt](https://github.com/nohac
    const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
    const char *MQTT_BROKER = "YOUR_MQTT_BROKER_IP";  // IP of machine running yoswit-homebridge-mqtt
    const int MQTT_PORT = 1883;
-   const char *MQTT_CLIENT_ID = "YoswitBLEScanner";
-   const char *MQTT_TOPIC = "yoswit/ble/devices";
    ```
 
 3. **Upload to ESP32**:
@@ -39,6 +37,20 @@ An ESP32-based BLE scanner for [yoswit-homebridge-mqtt](https://github.com/nohac
    ```bash
    platformio run --target upload
    ```
+
+## Development
+
+If you want to keep `include/credentials.h` in the repository but ignore local changes (e.g., for personal credentials), run:
+
+```bash
+git update-index --assume-unchanged include/credentials.h
+```
+
+To start tracking changes again:
+
+```bash
+git update-index --no-assume-unchanged include/credentials.h
+```
 
 ## Usage
 

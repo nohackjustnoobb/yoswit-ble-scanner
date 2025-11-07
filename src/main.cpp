@@ -8,10 +8,30 @@
 #include <map>
 #include <string>
 
-#define SCAN_DURATION_SECONDS 5
+#define SCAN_DURATION_SECONDS 3
 #define MAX_CONNECTION_ATTEMPTS 30
 #define CONNECTION_RETRY_TIMEOUT_MS 1000
-#define LED_PIN 8
+
+// LED configuration - defined in platformio.ini
+#ifndef HAS_BUILTIN_LED
+#define HAS_BUILTIN_LED 0 // Default: no LED
+#endif
+
+#ifndef LED_PIN
+#define LED_PIN 8 // Default pin if not specified
+#endif
+
+// Generate unique MQTT Client ID with random suffix
+String generateClientID() {
+  String clientID = "YoswitBLEScanner-";
+  for (int i = 0; i < 8; i++)
+    clientID += String(random(0, 16), HEX);
+
+  return clientID;
+}
+
+String MQTT_CLIENT_ID = generateClientID();
+const char *MQTT_TOPIC = "yoswit/ble/devices";
 
 // Global variable to store ManufacturerData of size 9, keyed by MAC address
 std::map<std::string, std::string> devices;
@@ -80,10 +100,12 @@ void connectMQTT() {
   Serial.print(MQTT_BROKER);
   Serial.print(":");
   Serial.print(MQTT_PORT);
+  Serial.print(", Client ID: ");
+  Serial.print(MQTT_CLIENT_ID);
   Serial.print(")");
 
   while (!mqttClient.connected() && attempts < MAX_CONNECTION_ATTEMPTS) {
-    if (mqttClient.connect(MQTT_CLIENT_ID))
+    if (mqttClient.connect(MQTT_CLIENT_ID.c_str()))
       break;
 
     delay(CONNECTION_RETRY_TIMEOUT_MS);
@@ -152,8 +174,13 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Yoswit BLE Scanner with WiFi & MQTT");
 
+#if HAS_BUILTIN_LED
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH); // LED OFF initially
+  Serial.println("Built-in LED enabled");
+#else
+  Serial.println("No built-in LED on this board");
+#endif
 
   // Setup MQTT
   mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
@@ -174,10 +201,14 @@ void loop() {
 
   // Maintain MQTT connection
   if (!mqttClient.connected()) {
+#if HAS_BUILTIN_LED
     digitalWrite(LED_PIN, HIGH); // LED OFF when not connected
+#endif
     connectMQTT();
   } else {
+#if HAS_BUILTIN_LED
     digitalWrite(LED_PIN, LOW); // LED ON when connected
+#endif
   }
   mqttClient.loop();
 
